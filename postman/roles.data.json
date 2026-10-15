@@ -1,0 +1,11 @@
+[
+  {
+    "role": "editor",
+    "title": "Check release notes"
+  },
+  {
+    "role": "viewer",
+    "title": "Viewer cannot create this"
+  }
+]
+

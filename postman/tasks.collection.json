@@ -1,0 +1,418 @@
+{
+  "info": {
+    "name": "Task API — role boundaries",
+    "description": "Synthetic localhost API. Run all requests in order with roles.data.json. Collection v2.1 for Newman compatibility; no production credentials.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!/^http:\\/\\/127\\.0\\.0\\.1:\\d+$/.test(pm.environment.get(\"baseUrl\") || \"\")) throw new Error(\"This demo collection requires a localhost baseUrl.\");"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Reject unauthenticated read",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/tasks"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.collectionVariables.unset(\"token\");",
+              "pm.collectionVariables.unset(\"taskId\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Reject wrong password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/session",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"role\":\"{{role}}\",\"password\":\"wrong-password\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Credential error\", () => pm.expect(pm.response.json()).to.eql({error:\"Invalid credentials.\"}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Create role session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/session",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"role\":\"{{role}}\",\"password\":\"demo-only-password\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const value = pm.response.json();",
+              "pm.test(\"Role matches iteration\", () => pm.expect(value.role).to.eql(pm.iterationData.get(\"role\")));",
+              "pm.test(\"Issued token is a UUID\", () => pm.expect(value.token).to.match(/^[0-9a-f]{8}-[0-9a-f-]{27}$/));",
+              "if (pm.response.code === 201) pm.collectionVariables.set(\"token\", value.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Fresh session starts with seed only",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Isolated seed data\", () => pm.expect(pm.response.json().tasks).to.eql([{id:\"seed\",title:\"Review test plan\",done:false}]));",
+              "pm.collectionVariables.set(\"taskId\",\"seed\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Reject invalid task data",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "const editor = pm.iterationData.get(\"role\") === \"editor\";",
+              "pm.test(\"Invalid input or permission is rejected\", () => pm.response.to.have.status(editor ? 400 : 403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Create task or enforce viewer boundary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"{{title}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "const editor = pm.iterationData.get(\"role\") === \"editor\";",
+              "pm.test(\"Create respects role\", () => pm.response.to.have.status(editor ? 201 : 403));",
+              "if(editor && pm.response.code === 201) {",
+              "  const task = pm.response.json();",
+              "  pm.test(\"Created task contract\", () => pm.expect(task).to.include({title:pm.iterationData.get(\"title\"),done:false}));",
+              "  pm.test(\"Task ID is present\", () => pm.expect(task.id).to.be.a(\"string\").and.not.empty);",
+              "  pm.collectionVariables.set(\"taskId\",task.id);",
+              "} else {",
+              "  pm.test(\"Permission error contract\", () => pm.expect(pm.response.json()).to.eql({error:\"Editor role required.\"}));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Read selected task",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks/{{taskId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Task contract\", () => pm.response.to.have.jsonSchema({type:\"object\",required:[\"id\",\"title\",\"done\"],additionalProperties:false,properties:{id:{type:\"string\"},title:{type:\"string\"},done:{type:\"boolean\"}}}));",
+              "pm.test(\"Title matches role workflow\", () => pm.expect(pm.response.json().title).to.eql(pm.iterationData.get(\"role\")===\"editor\" ? pm.iterationData.get(\"title\") : \"Review test plan\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Update or reject viewer mutation",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks/{{taskId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"done\":true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"Update respects role\", () => pm.response.to.have.status(pm.iterationData.get(\"role\")===\"editor\" ? 200 : 403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Verify persisted or unchanged state",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks/{{taskId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Persisted state respects role\", () => pm.expect(pm.response.json().done).to.eql(pm.iterationData.get(\"role\")===\"editor\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Delete or reject viewer mutation",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks/{{taskId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"Delete respects role\", () => pm.response.to.have.status(pm.iterationData.get(\"role\")===\"editor\" ? 204 : 403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Verify deletion or unchanged seed",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks/{{taskId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "const editor = pm.iterationData.get(\"role\")===\"editor\";",
+              "pm.test(\"Read confirms deletion boundary\", () => pm.response.to.have.status(editor ? 404 : 200));",
+              "if (!editor) pm.test(\"Viewer task remains unchanged\", () => pm.expect(pm.response.json()).to.eql({id:\"seed\",title:\"Review test plan\",done:false}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Invalidate session",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/session"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "pm.test(\"No response body\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Reject the invalidated bearer token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/tasks"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Revoked token is denied\", () => pm.expect(pm.response.json()).to.eql({error:\"Sign in required.\"}));",
+              "pm.collectionVariables.unset(\"token\");",
+              "pm.collectionVariables.unset(\"taskId\");"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+
