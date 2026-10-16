@@ -2,8 +2,10 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdir, rm, readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
+import { validateReport } from './validate-report.ts';
 
-process.chdir(new URL('..', import.meta.url).pathname);
+process.chdir(fileURLToPath(new URL('..', import.meta.url)));
 const port = process.env.DEMO_PORT ?? '4183';
 if (!/^\d+$/.test(port) || Number(port) < 1024 || Number(port) > 65535) throw new Error('Invalid DEMO_PORT.');
 const baseURL = `http://127.0.0.1:${port}`;
@@ -32,9 +34,8 @@ try {
   const [code] = await once(runner, 'exit');
   if (code !== 0) throw new Error(`Postman CLI exited with code ${code}.`);
   const report = JSON.parse(await readFile('reports/postman.json', 'utf8'));
-  const summary = report.run.summary;
-  if (summary.iterations.executed !== 2 || summary.executedRequests.executed !== 26 || summary.tests.executed !== 48 || summary.tests.failed || summary.tests.skipped || report.run.executions.some((e: { errors: unknown[] }) => e.errors.length)) throw new Error('Unexpected collection execution totals or failures.');
-  console.log(`Verified 2 role iterations, 26 requests, ${summary.tests.passed} passing assertions.`);
+  const passed = validateReport(report);
+  console.log(`Verified 2 role iterations, 26 requests, ${passed} passing assertions.`);
 } finally {
   stop();
   if (!serverExited) await once(server, 'exit');
