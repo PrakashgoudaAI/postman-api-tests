@@ -4,5 +4,5 @@
     "strict": true, "noUncheckedIndexedAccess": true, "noEmit": true,
     "allowImportingTsExtensions": true, "skipLibCheck": true
   },
-  "include": ["demo/**/*.ts", "scripts/**/*.ts"]
+  "include": ["demo/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"]
 }
