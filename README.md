@@ -22,6 +22,8 @@ npm test
 
 The runner starts its own localhost API, waits for readiness, runs the collection, validates execution totals, writes reports, and stops the server. It refuses to reuse an occupied port. Use `DEMO_PORT=4300 npm test` if port 4183 is unavailable.
 
+`npm test` first runs six unit tests for report validation. These reject incomplete runs, failed or skipped assertions, request errors, and malformed reports. Run `npm run test:unit` independently without starting a server. Unit results appear in the terminal; the Postman report files cover only the collection run.
+
 ## What runs
 
 The same 13 requests run with two data rows: an editor and a viewer. Each login receives an independent task list.

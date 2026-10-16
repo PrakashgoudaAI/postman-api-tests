@@ -7,7 +7,8 @@
   "scripts": {
     "check": "tsc --noEmit",
     "demo": "node demo/server.ts",
-    "test": "node scripts/run.ts"
+    "test": "npm run test:unit && node scripts/run.ts",
+    "test:unit": "node --test tests/*.test.ts"
   },
   "devDependencies": { "postman-cli": "1.74.0", "typescript": "5.9.3", "@types/node": "24.19.2" }
 }
