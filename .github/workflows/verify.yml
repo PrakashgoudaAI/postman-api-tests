@@ -10,14 +10,20 @@ jobs:
   collection:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: api collection
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          # Exercise the runner from a checkout path containing a space.
+          path: api collection
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: api collection/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm run check
       - run: npm test
@@ -25,6 +31,6 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: api-test-reports
-          path: reports/
+          path: api collection/reports/
           retention-days: 7
           if-no-files-found: warn
