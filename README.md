@@ -16,11 +16,10 @@ Use Node.js 24 and npm:
 
 ```sh
 npm ci --ignore-scripts
-npm run check
-npm test
+npm run verify
 ```
 
-The runner starts its own localhost API, waits for readiness, runs the collection, validates execution totals, writes reports, and stops the server. It refuses to reuse an occupied port. Use `DEMO_PORT=4300 npm test` if port 4183 is unavailable.
+The runner starts its own localhost API, waits for readiness, runs the collection, validates the declared requests, assertions and execution totals, writes reports, and stops the server. It refuses to reuse an occupied port. Use `DEMO_PORT=4300 npm test` if port 4183 is unavailable.
 
 ## What runs
 
@@ -59,15 +58,17 @@ npx newman@6.2.3 run postman/tasks.collection.json \
 
 ## Reports and CI
 
-`npm test` writes `reports/junit.xml` and `reports/postman.json`, plus a CLI summary: 2 iterations, 26 requests, and 48 assertions. The GitHub workflow runs type checks and both role iterations, then uploads the reports for seven days, including when the collection fails. A failed assertion causes the job to fail. The runner uses local file paths and disables report events; it does not sign in or upload results to a Postman workspace.
+`npm test` writes `reports/junit.xml` and `reports/postman.json`, plus a CLI summary: 2 iterations, 26 requests, and 48 assertions. The GitHub workflow runs type checks, seven validator tests and both role iterations, then uploads the reports for seven days, including when the collection fails. A failed assertion causes the job to fail. The runner uses local file paths and disables report events; it does not sign in or upload results to a Postman workspace.
 
 The JSON report can contain authorization headers and response bodies. Reports are suitable for this synthetic app; review and redact them before adopting this pattern for sensitive systems. No environment or collection export containing runtime tokens is committed.
+
+See [how the report validator catches misleading totals](docs/report-evidence.md) for the failure reproducer and trust boundary.
 
 ## Adapt the pattern
 
 - Add requests and assertions in `postman/tasks.collection.json`.
 - Add synthetic iteration rows in `postman/roles.data.json`.
-- Update expected run totals in `scripts/run.ts` when adding requests or data rows.
+- Update the request and assertion plan in `scripts/report-plan.ts` when adding requests or data rows.
 - Keep a later read after a mutation: a successful status alone does not prove state changed correctly.
 - Keep permission tests below the UI so hidden controls are not mistaken for authorization.
 
