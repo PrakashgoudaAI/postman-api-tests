@@ -25,8 +25,7 @@ jobs:
           cache: npm
           cache-dependency-path: api collection/package-lock.json
       - run: npm ci --ignore-scripts
-      - run: npm run check
-      - run: npm test
+      - run: npm run verify
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: ${{ !cancelled() }}
         with:
